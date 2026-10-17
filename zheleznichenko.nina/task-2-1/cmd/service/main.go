@@ -15,10 +15,7 @@ const (
 	impossibleTemperature = -1
 )
 
-var (
-	// ErrUnknownOperator возвращается, если передан неподдерживаемый оператор сравнения.
-	ErrUnknownOperator = errors.New("unknown operator")
-)
+var ErrUnknownOperator = errors.New("unknown operator")
 
 type Operator string
 
