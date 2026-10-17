@@ -2,103 +2,157 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 )
 
-var errFailedScan = errors.New("failed to scan token")
+const (
+	minAllowedTemperature = 15
+	maxAllowedTemperature = 30
+	impossibleTemperature = -1
+)
 
-func readInt(scanner *bufio.Scanner) (int, error) {
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return 0, fmt.Errorf("scan integer: %w", err)
-		}
+type Operator string
 
-		return 0, errFailedScan
-	}
+const (
+	operatorGreaterOrEqual Operator = ">="
+	operatorLessOrEqual    Operator = "<="
+	operatorEqual          Operator = "="
+)
 
-	parsedValue, err := strconv.Atoi(scanner.Text())
-	if err != nil {
-		return 0, fmt.Errorf("parse integer: %w", err)
-	}
-
-	return parsedValue, nil
+type TemperatureRange struct {
+	min int
+	max int
 }
 
-func readString(scanner *bufio.Scanner) (string, error) {
+func NewTemperatureRange() TemperatureRange {
+	return TemperatureRange{
+		min: minAllowedTemperature,
+		max: maxAllowedTemperature,
+	}
+}
+
+func (r *TemperatureRange) Apply(operator Operator, threshold int) error {
+	switch operator {
+	case operatorGreaterOrEqual:
+		r.min = max(r.min, threshold)
+	case operatorLessOrEqual:
+		r.max = min(r.max, threshold)
+	case operatorEqual:
+		r.min = max(r.min, threshold)
+		r.max = min(r.max, threshold)
+	default:
+		return fmt.Errorf("unknown operator %q", operator)
+	}
+
+	return nil
+}
+
+func (r TemperatureRange) Result() int {
+	if r.min > r.max {
+		return impossibleTemperature
+	}
+
+	return r.min
+}
+
+func readToken(scanner *bufio.Scanner) (string, error) {
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
-			return "", fmt.Errorf("scan string: %w", err)
+			return "", fmt.Errorf("scan input: %w", err)
 		}
 
-		return "", errFailedScan
+		return "", fmt.Errorf("read input token: %w", io.EOF)
 	}
 
 	return scanner.Text(), nil
 }
 
-func processCondition(operation string, threshold int, minTemp *int, maxTemp *int) {
-	switch operation {
-	case ">=":
-		*minTemp = max(*minTemp, threshold)
-	case "<=":
-		*maxTemp = min(*maxTemp, threshold)
-	case "=":
-		*minTemp = max(*minTemp, threshold)
-		*maxTemp = min(*maxTemp, threshold)
+func readInt(scanner *bufio.Scanner) (int, error) {
+	token, err := readToken(scanner)
+	if err != nil {
+		return 0, err
+	}
+
+	value, err := strconv.Atoi(token)
+	if err != nil {
+		return 0, fmt.Errorf("parse integer %q: %w", token, err)
+	}
+
+	return value, nil
+}
+
+func readOperator(scanner *bufio.Scanner) (Operator, error) {
+	token, err := readToken(scanner)
+	if err != nil {
+		return "", err
+	}
+
+	operator := Operator(token)
+
+	switch operator {
+	case operatorGreaterOrEqual, operatorLessOrEqual, operatorEqual:
+		return operator, nil
+	default:
+		return "", fmt.Errorf("unknown operator %q", token)
 	}
 }
 
-func processTestCases(scanner *bufio.Scanner, testCasesCount int) error {
+func processTestCases(
+	scanner *bufio.Scanner,
+	testCasesCount int,
+) error {
 	for range testCasesCount {
 		operationsCount, err := readInt(scanner)
 		if err != nil {
-			return err
+			return fmt.Errorf("read operations count: %w", err)
 		}
 
-		minTemp := 15
-		maxTemp := 30
+		temperatureRange := NewTemperatureRange()
 
 		for range operationsCount {
-			operation, err := readString(scanner)
+			operator, err := readOperator(scanner)
 			if err != nil {
-				return err
+				return fmt.Errorf("read operator: %w", err)
 			}
 
 			threshold, err := readInt(scanner)
 			if err != nil {
+				return fmt.Errorf("read temperature: %w", err)
+			}
+
+			if err := temperatureRange.Apply(operator, threshold); err != nil {
 				return err
 			}
 
-			processCondition(operation, threshold, &minTemp, &maxTemp)
-
-			if minTemp <= maxTemp {
-				fmt.Println(minTemp)
-			} else {
-				fmt.Println(-1)
-			}
+			fmt.Println(temperatureRange.Result())
 		}
 	}
 
 	return nil
 }
 
-func main() {
+func run() error {
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Split(bufio.ScanWords)
 
 	testCasesCount, err := readInt(scanner)
 	if err != nil {
-		return
+		return fmt.Errorf("read test cases count: %w", err)
 	}
 
 	if err := processTestCases(scanner, testCasesCount); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return fmt.Errorf("process test cases: %w", err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "scanner error: %v\n", err)
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
 	}
 }
