@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,10 @@ const (
 	minAllowedTemperature = 15
 	maxAllowedTemperature = 30
 	impossibleTemperature = -1
+)
+
+var (
+	ErrUnknownOperator = errors.New("unknown operator")
 )
 
 type Operator string
@@ -44,13 +49,13 @@ func (r *TemperatureRange) Apply(operator Operator, threshold int) error {
 		r.min = max(r.min, threshold)
 		r.max = min(r.max, threshold)
 	default:
-		return fmt.Errorf("unknown operator %q", operator)
+		return fmt.Errorf("%w: %q", ErrUnknownOperator, operator)
 	}
 
 	return nil
 }
 
-func (r TemperatureRange) Result() int {
+func (r *TemperatureRange) Result() int {
 	if r.min > r.max {
 		return impossibleTemperature
 	}
@@ -96,7 +101,7 @@ func readOperator(scanner *bufio.Scanner) (Operator, error) {
 	case operatorGreaterOrEqual, operatorLessOrEqual, operatorEqual:
 		return operator, nil
 	default:
-		return "", fmt.Errorf("unknown operator %q", token)
+		return "", fmt.Errorf("%w: %q", ErrUnknownOperator, token)
 	}
 }
 
