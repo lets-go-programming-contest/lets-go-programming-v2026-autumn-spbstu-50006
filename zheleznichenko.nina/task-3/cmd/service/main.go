@@ -5,9 +5,9 @@ import (
 	"log"
 	"strings"
 
-	"task-3/internal/config"
-	"task-3/internal/currency"
-	"task-3/internal/storage"
+	"zheleznichenko.nina/task-3/internal/config"
+	"zheleznichenko.nina/task-3/internal/currency"
+	"zheleznichenko.nina/task-3/internal/storage"
 )
 
 func main() {
